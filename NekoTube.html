@@ -1,0 +1,638 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>♡ NekoTube 2.0 ♡</title>
+
+<style>
+* {box-sizing:border-box}
+
+body {
+ margin:0;
+ font-family:"Trebuchet MS",sans-serif;
+ color:#a45e80;
+ background:
+ linear-gradient(#ffe8f0aa,#ffe8f0aa),
+ url("chocola-wallpaper-5.png") center/cover fixed;
+}
+
+header {
+ background:#ffe0eced;
+ padding:18px;
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ flex-wrap:wrap;
+ gap:12px;
+ border-bottom:3px solid white;
+}
+
+.logo {
+ font-size:29px;
+ font-weight:bold;
+ color:#ed83ad;
+ text-shadow:1px 2px white;
+}
+
+button {
+ background:#f6a9c9;
+ color:white;
+ border:2px solid white;
+ border-radius:22px;
+ padding:10px 16px;
+ cursor:pointer;
+ font-weight:bold;
+ transition:.2s;
+}
+
+button:hover {
+ background:#e987b2;
+ transform:translateY(-2px);
+}
+
+input {
+ border:2px solid #f7b9d1;
+ background:#fff8fb;
+ border-radius:22px;
+ padding:12px;
+ color:#a45e80;
+ outline:none;
+}
+
+#query {width:min(260px,55vw)}
+.search {display:flex;gap:7px}
+
+nav {
+ display:flex;
+ justify-content:center;
+ flex-wrap:wrap;
+ gap:9px;
+ padding:15px;
+}
+
+main {
+ max-width:1150px;
+ margin:auto;
+ padding:15px;
+}
+
+.panel {
+ background:#fff0f5ed;
+ border:3px solid white;
+ border-radius:22px;
+ padding:20px;
+ margin-bottom:20px;
+ box-shadow:0 5px 20px #bd789555;
+}
+
+h2 {color:#e68caf}
+
+#videos {
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+ gap:17px;
+}
+
+.video {
+ background:#fffafd;
+ border:3px solid white;
+ border-radius:18px;
+ overflow:hidden;
+ transition:.2s;
+}
+
+.video:hover {transform:translateY(-4px)}
+
+.video img {
+ width:100%;
+ aspect-ratio:16/9;
+ object-fit:cover;
+ display:block;
+ cursor:pointer;
+}
+
+.video h3 {
+ font-size:14px;
+ padding:0 12px;
+ cursor:pointer;
+}
+
+.video p {
+ font-size:12px;
+ padding:0 12px;
+ color:#bd8aa1;
+}
+
+.actions {
+ display:flex;
+ gap:5px;
+ flex-wrap:wrap;
+ padding:8px;
+}
+
+.actions button {
+ padding:8px 11px;
+ font-size:12px;
+}
+
+.heart.active {background:#e66d9f}
+
+#player {display:none}
+
+iframe {
+ width:100%;
+ aspect-ratio:16/9;
+ border:0;
+ border-radius:15px;
+ background:#222;
+}
+
+#status {
+ text-align:center;
+ padding:15px;
+}
+
+#more {display:none;margin-top:15px}
+
+.api-box input {width:100%;margin:8px 0}
+
+.loading {
+ display:inline-block;
+ animation:float 1s infinite alternate;
+}
+
+@keyframes float {
+ from {transform:translateY(0)}
+ to {transform:translateY(-9px)}
+}
+
+.empty {
+ text-align:center;
+ padding:25px;
+ background:#fffafd;
+ border-radius:18px;
+}
+
+.playlist {
+ background:#fffafd;
+ padding:13px;
+ border-radius:15px;
+ margin:10px 0;
+ border:2px solid white;
+}
+
+footer {
+ text-align:center;
+ padding:25px;
+}
+
+@media(max-width:500px) {
+ header {justify-content:center}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+ <div class="logo">♡ NekoTube ♡</div>
+ <div class="search">
+  <input id="query" placeholder="Search videos...">
+  <button onclick="searchVideos()">⌕</button>
+ </div>
+</header>
+
+<nav>
+ <button onclick="home()">♡ Home</button>
+ <button onclick="showFavorites()">♥ Favorites</button>
+ <button onclick="showHistory()">◷ History</button>
+ <button onclick="showPlaylists()">🎀 Playlists</button>
+</nav>
+
+<main>
+
+<section class="panel api-box">
+ <h2>♡ NekoTube Settings</h2>
+ <p>Enter your YouTube API key</p>
+ <input id="apiKey" type="password"
+ placeholder="Your API key...">
+ <button onclick="saveKey()">Save key</button>
+ <button onclick="clearKey()">Clear</button>
+ <p id="keyStatus">API key not entered ♡</p>
+</section>
+
+<section class="panel" id="player">
+ <button onclick="closePlayer()">♡ Back</button>
+ <h2 id="playerTitle">Now Playing</h2>
+ <div id="frame"></div>
+ <p>Enjoy your video! ♡</p>
+</section>
+
+<section class="panel">
+ <h2 id="heading">♡ Welcome to NekoTube!</h2>
+ <p id="subtitle">Your little kawaii corner of the internet ♪</p>
+
+ <div id="status">Search for something to begin! ♡</div>
+ <div id="videos"></div>
+ <button id="more" onclick="nextPage()">Load more ♡</button>
+</section>
+
+</main>
+
+<footer>
+ Made with ♡ and lots of pink · NekoTube 2.0
+</footer>
+
+<script>
+let API_KEY = "";
+let nextToken = "";
+let currentQuery = "";
+let busy = false;
+
+const videos = document.getElementById("videos");
+const statusText = document.getElementById("status");
+
+let favorites = JSON.parse(
+ localStorage.getItem("nekotube_favorites") || "[]"
+);
+
+let history = JSON.parse(
+ localStorage.getItem("nekotube_history") || "[]"
+);
+
+let playlists = JSON.parse(
+ localStorage.getItem("nekotube_playlists") || "[]"
+);
+
+function saveData() {
+ localStorage.setItem("nekotube_favorites",
+  JSON.stringify(favorites));
+ localStorage.setItem("nekotube_history",
+  JSON.stringify(history));
+ localStorage.setItem("nekotube_playlists",
+  JSON.stringify(playlists));
+}
+
+function saveKey() {
+ const key = document.getElementById("apiKey").value.trim();
+
+ if(!key) {
+  document.getElementById("keyStatus").textContent =
+   "Enter your API key first!";
+  return;
+ }
+
+ API_KEY = key;
+ document.getElementById("keyStatus").textContent =
+  "API key activated! ♡";
+}
+
+function clearKey() {
+ API_KEY = "";
+ document.getElementById("apiKey").value = "";
+ document.getElementById("keyStatus").textContent =
+  "API key cleared ♡";
+}
+
+function setPage(title,subtitle) {
+ document.getElementById("heading").textContent = title;
+ document.getElementById("subtitle").textContent = subtitle;
+ videos.innerHTML = "";
+ document.getElementById("more").style.display = "none";
+ statusText.textContent = "";
+}
+
+function makeCard(video) {
+ const card = document.createElement("article");
+ card.className = "video";
+
+ const img = document.createElement("img");
+ img.src = video.thumbnail;
+ img.alt = video.title;
+ img.onclick = () => playVideo(video);
+
+ const title = document.createElement("h3");
+ title.textContent = video.title;
+ title.onclick = () => playVideo(video);
+
+ const channel = document.createElement("p");
+ channel.textContent = video.channel;
+
+ const actions = document.createElement("div");
+ actions.className = "actions";
+
+ const heart = document.createElement("button");
+ heart.className = "heart";
+
+ function updateHeart() {
+  const saved = favorites.some(v => v.id === video.id);
+  heart.textContent = saved ? "♥ Saved" : "♡ Favorite";
+  heart.classList.toggle("active",saved);
+ }
+
+ updateHeart();
+
+ heart.onclick = () => {
+  if(favorites.some(v => v.id === video.id)) {
+   favorites = favorites.filter(v => v.id !== video.id);
+  } else {
+   favorites.unshift(video);
+  }
+  saveData();
+  updateHeart();
+ };
+
+ const add = document.createElement("button");
+ add.textContent = "+ Playlist";
+ add.onclick = () => addToPlaylist(video);
+
+ actions.append(heart,add);
+ card.append(img,title,channel,actions);
+
+ return card;
+}
+
+function showVideos(items) {
+ items.forEach(video => {
+  videos.appendChild(makeCard(video));
+ });
+}
+
+async function searchVideos(append=false) {
+ if(!API_KEY) {
+  statusText.textContent = "Enter your API key first! ♡";
+  return;
+ }
+
+ const query = document.getElementById("query").value.trim();
+
+ if(!query || busy) return;
+
+ if(!append) {
+  currentQuery = query;
+  nextToken = "";
+  videos.innerHTML = "";
+  document.getElementById("heading").textContent =
+   "♡ Results for " + query;
+ }
+
+ busy = true;
+ statusText.innerHTML =
+  '<span class="loading">♡ Searching... ♡</span>';
+
+ try {
+  const params = new URLSearchParams({
+   part:"snippet",
+   type:"video",
+   maxResults:"12",
+   q:currentQuery,
+   key:API_KEY,
+   videoEmbeddable:"true"
+  });
+
+  if(append && nextToken) {
+   params.set("pageToken",nextToken);
+  }
+
+  const response = await fetch(
+   "https://www.googleapis.com/youtube/v3/search?" +
+   params.toString()
+  );
+
+  const data = await response.json();
+
+  if(!response.ok) {
+   throw new Error(data.error?.message || "Search failed");
+  }
+
+  if(!data.items || !data.items.length) {
+   statusText.textContent = "No videos found! ♡";
+   return;
+  }
+
+  const results = data.items.map(item => ({
+   id:item.id.videoId,
+   title:item.snippet.title,
+   channel:item.snippet.channelTitle,
+   thumbnail:
+    item.snippet.thumbnails.medium?.url ||
+    item.snippet.thumbnails.default.url
+  }));
+
+  showVideos(results);
+  nextToken = data.nextPageToken || "";
+
+  document.getElementById("more").style.display =
+   nextToken ? "inline-block" : "none";
+
+  statusText.textContent = "Found videos! Enjoy watching ♡";
+
+ } catch(error) {
+  statusText.textContent = "Oops! " + error.message;
+ } finally {
+  busy = false;
+ }
+}
+
+function nextPage() {
+ searchVideos(true);
+}
+
+function playVideo(video) {
+ document.getElementById("player").style.display = "block";
+ document.getElementById("playerTitle").textContent =
+  video.title;
+
+ document.getElementById("frame").innerHTML = "";
+
+ const iframe = document.createElement("iframe");
+
+ iframe.src =
+  "https://www.youtube.com/embed/" +
+  encodeURIComponent(video.id);
+
+ iframe.title = video.title;
+ iframe.allow =
+  "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share";
+ iframe.allowFullscreen = true;
+
+ // Give YouTube a normal browser referrer when available
+ iframe.referrerPolicy = "strict-origin-when-cross-origin";
+
+ document.getElementById("frame").appendChild(iframe);
+
+ history = [
+  video,
+  ...history.filter(v => v.id !== video.id)
+ ].slice(0,100);
+
+ saveData();
+
+ window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function closePlayer() {
+ document.getElementById("player").style.display = "none";
+ document.getElementById("frame").innerHTML = "";
+}
+
+function showFavorites() {
+ closePlayer();
+ setPage("♥ Your Favorites","All your saved videos in one place!");
+
+ if(!favorites.length) {
+  videos.innerHTML =
+   '<div class="empty">No favorites yet! ♡</div>';
+  return;
+ }
+
+ showVideos(favorites);
+}
+
+function showHistory() {
+ closePlayer();
+ setPage("◷ Watch History","Your recently watched videos ♡");
+
+ if(!history.length) {
+  videos.innerHTML =
+   '<div class="empty">Your history is empty! ♡</div>';
+  return;
+ }
+
+ showVideos(history);
+}
+
+function createPlaylist() {
+ const name = prompt("Name your new playlist ♡");
+
+ if(!name || !name.trim()) return;
+
+ playlists.push({
+  name:name.trim(),
+  videos:[]
+ });
+
+ saveData();
+ showPlaylists();
+}
+
+function addToPlaylist(video) {
+ if(!playlists.length) {
+  alert("Create a playlist first! ♡");
+  createPlaylist();
+  return;
+ }
+
+ const names = playlists
+  .map((p,i) => (i+1)+". "+p.name)
+  .join("\n");
+
+ const choice = prompt(
+  "Choose a playlist by number:\n"+names
+ );
+
+ const index = Number(choice)-1;
+
+ if(!Number.isInteger(index) ||
+    index < 0 || index >= playlists.length) return;
+
+ const playlist = playlists[index];
+
+ if(playlist.videos.some(v => v.id === video.id)) {
+  alert("Already in this playlist! ♡");
+  return;
+ }
+
+ playlist.videos.push(video);
+ saveData();
+ alert("Video added to "+playlist.name+"! ♡");
+}
+
+function showPlaylists() {
+ closePlayer();
+ setPage("🎀 Your Playlists","Your personal video collections!");
+
+ const create = document.createElement("button");
+ create.textContent = "+ Create Playlist";
+ create.onclick = createPlaylist;
+ videos.appendChild(create);
+
+ playlists.forEach((playlist,index) => {
+  const box = document.createElement("div");
+  box.className = "playlist";
+
+  const name = document.createElement("h3");
+  name.textContent = "♡ "+playlist.name;
+
+  const count = document.createElement("p");
+  count.textContent = playlist.videos.length+" videos";
+
+  const open = document.createElement("button");
+  open.textContent = "Open ♡";
+  open.onclick = () => openPlaylist(index);
+
+  const rename = document.createElement("button");
+  rename.textContent = "Rename";
+  rename.onclick = () => {
+   const newName = prompt("New playlist name:",playlist.name);
+   if(newName?.trim()) {
+    playlist.name = newName.trim();
+    saveData();
+    showPlaylists();
+   }
+  };
+
+  const remove = document.createElement("button");
+  remove.textContent = "Delete";
+  remove.onclick = () => {
+   if(confirm("Delete this playlist?")) {
+    playlists.splice(index,1);
+    saveData();
+    showPlaylists();
+   }
+  };
+
+  box.append(name,count,open,rename,remove);
+  videos.appendChild(box);
+ });
+}
+
+function openPlaylist(index) {
+ closePlayer();
+
+ const playlist = playlists[index];
+
+ setPage("♡ "+playlist.name,"Your playlist videos!");
+
+ if(!playlist.videos.length) {
+  videos.innerHTML =
+   '<div class="empty">This playlist is empty! ♡</div>';
+  return;
+ }
+
+ showVideos(playlist.videos);
+}
+
+function home() {
+ closePlayer();
+
+ document.getElementById("query").value = "";
+
+ setPage("♡ Welcome to NekoTube!",
+  "Your little kawaii corner of the internet ♪");
+
+ statusText.textContent =
+  "Search for something to begin! ♡";
+}
+
+document.getElementById("query").addEventListener(
+ "keydown",event => {
+  if(event.key === "Enter") searchVideos();
+ }
+);
+</script>
+
+</body>
+</html>
